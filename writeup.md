@@ -60,39 +60,40 @@ The first stage of my pipeline is distortion correction.  In this stage, I use t
 
 ![alt text][image2]
 
-#### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
+#### 2. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
-
-![alt text][image3]
-
-#### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
-
-The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
+The second stage of my pipeline was to do a perspective transform on the road to give me an overhead perspective of the road in front of the car.  To do a perspective transform I manually selected points corresponding with corners of the road in an undistorted image of a straight section of road and mapped them to a rectangle, as seen in the code snippet and table below:
 
 ```python
-src = np.float32(
-    [[(img_size[0] / 2) - 55, img_size[1] / 2 + 100],
-    [((img_size[0] / 6) - 10), img_size[1]],
-    [(img_size[0] * 5 / 6) + 60, img_size[1]],
-    [(img_size[0] / 2 + 55), img_size[1] / 2 + 100]])
-dst = np.float32(
-    [[(img_size[0] / 4), 0],
-    [(img_size[0] / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), 0]])
+src_bottom_left = [200,720]
+src_bottom_right = [1110, 720]
+src_top_left = [582, 460]
+src_top_right = [700, 460]
+src = np.float32([src_bottom_left,src_bottom_right,src_top_left,src_top_right])
+
+dst_bottom_left = [200,720]
+dst_bottom_right = [1110, 720]
+dst_top_left = [200, 0]
+dst_top_right = [1110, 0]
+dst = np.float32([dst_bottom_left,dst_bottom_right,dst_top_left,dst_top_right])
 ```
 
-This resulted in the following source and destination points:
+This resulted in the following source and destination points in the table below which I used to obtain the perspective transformation matrix, M, using the `cv2.getPerspectiveTransform(src, dst)` function.  I also switched the arguments and used `cv2.getPerspectiveTransform(dst, src)` to get the inverse perspective transform matrix:
 
 | Source        | Destination   | 
 |:-------------:|:-------------:| 
-| 585, 460      | 320, 0        | 
-| 203, 720      | 320, 720      |
-| 1127, 720     | 960, 720      |
-| 695, 460      | 960, 0        |
+| 200, 720      | 200, 720      | 
+| 1110, 720     | 320, 720      |
+| 582, 460      | 200, 0        |
+| 700, 460      | 1110, 0       |
 
-I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+With the M matrix, I'm then able to use the function `cv2.warpPerspective()` to warp the image to the new perspective.  I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+
+![alt text][image3]
+
+#### 3.  Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
+
+The third step of my pipeline was to apply binary thresholds to the perspective transformed road to highlight pixels corresponding with lane lines.  I experiemented with a number of different color and gradient thresholding methods but ultimately found I could obtain clear lane lines using an RGB threshold to identify white lines.  The RGB threshold values to identify white lines were r > 190, g > 190, and b > 190.  Yellow lines were more difficult to pick up, and after some experimenting in various color spaces I found yellow could easily be identified in the LAB color space using the b channel.  The b threshold value to pick up yellow lines in the LAB colorspace was b > 185.  The b channel of the LAB colorspace was normalized prior to applying the threshold.  Examples of thresholded lane lines are shown below:
 
 ![alt text][image4]
 
