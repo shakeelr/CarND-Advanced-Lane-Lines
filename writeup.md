@@ -56,13 +56,13 @@ I then used the output `objpoints` and `imgpoints` to compute the camera calibra
 
 #### 1. Provide an example of a distortion-corrected image.
 
-The first stage of my pipeline is distortion correction.  In this stage, I use the camera calibration coefficients obtained in the camera calibration step applied above to undistort images using `cv2.undistort()`.  An example of an undistorted image is shown below:
+The first stage of my pipeline (found in code cell 4) is distortion correction.  In this stage, I use the camera calibration coefficients obtained in the camera calibration step applied above to undistort images using `cv2.undistort()`.  An example of an undistorted image is shown below:
 
 ![alt text][image2]
 
 #### 2. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
-The second stage of my pipeline was to do a perspective transform on the road to give me an overhead perspective of the road in front of the car.  To do a perspective transform I manually selected points corresponding with corners of the road in an undistorted image of a straight section of road and mapped them to a rectangle, as seen in the code snippet and table below:
+The second stage of my pipeline (found in code cell 5) was to do a perspective transform on the road to give me an overhead perspective of the road in front of the car.  To do a perspective transform I manually selected points corresponding with corners of the road in an undistorted image of a straight section of road and mapped them to a rectangle, as seen in the code snippet and table below:
 
 ```python
 src_bottom_left = [200,720]
@@ -93,23 +93,29 @@ With the M matrix, I'm then able to use the function `cv2.warpPerspective()` to 
 
 #### 3.  Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 
-The third step of my pipeline was to apply binary thresholds to the perspective transformed road to highlight pixels corresponding with lane lines.  I experiemented with a number of different color and gradient thresholding methods but ultimately found I could obtain clear lane lines using an RGB threshold to identify white lines.  The RGB threshold values to identify white lines were r > 190, g > 190, and b > 190.  Yellow lines were more difficult to pick up, and after some experimenting in various color spaces I found yellow could easily be identified in the LAB color space using the b channel.  The b threshold value to pick up yellow lines in the LAB colorspace was b > 185.  The b channel of the LAB colorspace was normalized prior to applying the threshold.  Examples of thresholded lane lines are shown below:
+The third step of my pipeline (found in code cell 7) was to apply binary thresholds to the perspective transformed road to highlight pixels corresponding with lane lines.  I experiemented with a number of different color and gradient thresholding methods but ultimately found I could obtain clear lane lines using an RGB threshold to identify white lines.  The RGB threshold values to identify white lines were r > 190, g > 190, and b > 190.  Yellow lines were more difficult to pick up, and after some experimenting in various color spaces I found yellow could easily be identified in the LAB color space using the b channel.  The b threshold value to pick up yellow lines in the LAB colorspace was b > 185.  The b channel of the LAB colorspace was normalized prior to applying the threshold.  Examples of thresholded lane lines are shown below:
 
 ![alt text][image4]
 
 #### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+The 4th step of my pipeline (found in code cell 10) is to fit identified lane line pixels to a polynomial.  This is done using a sliding histogram window method.  Line line pixels in each window with a minimum number of pixels are appended to a list and a polynomial is fitted through it using the `np.polyfit()` method.  An image showing a visualization of the windows, identified pixels, and polynomial fitted through then is shown below:
 
 ![alt text][image5]
 
 #### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
-I did this in lines # through # in my code in `my_other_file.py`
+The next step of my pipeline (found in code cell 11) is to calculate the radius of curvature and offset of the lane lines.  I calculate the radias of curvature using the equation:
+
+`(1 + (2*a*y*ym_per_pix + v)**2)**1.5) / abs(2*c)`
+
+where a, b, c are the coeffients of the polynomial derived in pipeline stage 4, y = 720 for the top of the image, and ym_per_pix is the number of meters per pixel in the y axis (assumed to be 30m/pixel).  The above equation is applied to both the left and right lane lines and averaged together to estimate the radias of curvature.
+
+Offset is caculated by finding the x value for both lanes at the bottom of the image, finding the midpoint of the two lanes at that point, and subtracting that from the midpoint of the image.
 
 #### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+The final step of my pipeline (found in code cell 12)is projecting the lanes back onto the road.  To do this I create blank image the same size as the warped image and fill the area between the fitted lane lines onto it.  I color that area green and unwarp it using the inverse perspective transform, which is to use `cv2.warpPerspective()` with the inverse matrix Minv as an argument, then overlay it onto the road using "cv2.addWeighted()" to get a transperant effect.  I also add text to the final image for the radias of curvature and offset.  The final result can be seen below:
 
 ![alt text][image6]
 
@@ -119,6 +125,8 @@ I implemented this step in lines # through # in my code in `yet_another_file.py`
 
 #### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
+I created a class for tracking lines, `Line()` in code cell 13, which is used in the final image processing pipeline for smoothing.  The final pipeline is found in code cell 14.  Smoothing is achieved by storing the 5 most recent lane lines in the line class and averaging them together before projecting the averaged lanes back on the road.
+
 Here's a [link to my video result](./project_video.mp4)
 
 ---
@@ -127,4 +135,9 @@ Here's a [link to my video result](./project_video.mp4)
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+While the appraoch I took is fairly straightforward and seems to track the lanes reasonably well, has a few shortcomings that could be improved upon. First, values for radias of curvature, while they seem to be in a reasonable order of magnatude (2-3km radias of curvature on a section or road with a 1km radias of curvature), tend to be noisy - even with smoothing.  There are two main reasons for this:
+
+1. The right lane is dashed, and the line that fits through it does not always fit well.  This causes the left and right lanes to deviate in curvature, throwing the average off.
+2. In cases where there are dark shadows on the road, the lane pixels may be difficult to detect, which can also cause problems with polynomial fitting.
+
+Both these issues could probably be mitigated using sanity checks.  For example making sure detecting lanes are parallel and have similar radii of curvature.  Sudden changes in lane curvature could also be a sign that the lanes were not being fitted correctly.
