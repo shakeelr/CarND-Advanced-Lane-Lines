@@ -127,7 +127,7 @@ The final step of my pipeline (found in code cell 12)is projecting the lanes bac
 
 I created a class for tracking lines, `Line()` in code cell 13, which is used in the final image processing pipeline for smoothing.  The final pipeline is found in code cell 14.  Smoothing is achieved by storing the 5 most recent lane lines in the line class and averaging them together before projecting the averaged lanes back on the road.
 
-Here's a [link to my video result](./project_video.mp4)
+Here's a [link to my video result](./output_videos/project_video.mp4)
 
 ---
 
